@@ -1,19 +1,21 @@
 import sys
 
-def main():
-    mileage = 0
-    try:
-        if len(sys.argv) == 2:
-            mileage = float(sys.argv[1])
-        else:
-            print("Program has to be excecuted as following: python3 estimage.py <mileage>")
-            exit(1)
-    except:
-        print("Wrong arguments")
-        exit(1)
-
+def get_thetas():
     thetaZero = 0
     thetaOne = 0
+    return (thetaZero, thetaOne)
+
+
+def main():
+    try:
+        mileage = int(input("Enter the mileage: "))
+    except:
+        print("The mileage is not a number !")
+        exit()
+    if mileage < 0:
+        print("The mileage cannot be negative !")
+        exit()
+    thetaZero, thetaOne = get_thetas()
     estimatePrice = thetaZero + (thetaOne * mileage)
     print("The estimation is :", estimatePrice)
 
