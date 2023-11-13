@@ -1,87 +1,71 @@
 import csv
+import sys
 import matplotlib.pyplot as plt
+import pandas as pd 
 
-def estimatePrice(mileage, theta0, theta1):
-    return float(theta0) + (float(theta1) * int(mileage))
+def estimate_price(mileage, theta0, theta1):
+    return float(theta0) + (float(theta1) * float(mileage))
 
-def normalize(data):
-    min_km = 9999999
-    max_km = 0
-    min_price = 9999999
-    max_price = 0
-    for item in data:
-        if int(item['km']) > max_km:
-            max_km = int(item['km'])
-        if int(item['km']) < min_km:
-            min_km = int(item['km'])
-        if int(item['price']) > max_price:
-            max_price = int(item['price'])
-        if int(item['price']) < min_price:
-            min_price = int(item['price'])
-    print(min_km, max_km, min_price, max_price)
-    tmp_data = []
-    for item in data:
-        tmp_km = (int(item['km']) - min_km) / (max_km - min_km)
-        tmp_price = (int(item['price']) - min_price) / (max_price - min_price)
-        tmp_data.append({'km': tmp_km, 'price': tmp_price})
-    print(tmp_data)
-    return tmp_data
-
-
+def write_to_txt(theta0, theta1):
+    f = open("thetas.txt", "w")
+    f.write(f"Theta0:{theta0}\nTheta1:{theta1}\n")
+    f.close()
 
 def parse_csv():
-    dataList = []
+    data_list = []
     with open('data.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            dataList.append(dict(row))
-    return dataList
+            data_list.append({'km': float(row['km']), 'price': float(row['price'])})
+    return data_list
+
+def estimate_precision(theta0, theta1, data_dict):
+    mae = 0 # Mean absolute error https://en.wikipedia.org/wiki/Mean_absolute_error
+    for item in data_dict:
+        mae += abs(estimate_price(item["km"], theta0, theta1) - item["price"])
+    mae /= len(data_dict)
+    print(mae)
 
 def main():
-    dataDictUnormalized = []
-    dataDictUnormalized = parse_csv()
+    data_dict = parse_csv()
+    
+    m = 0 # theta1 = slope = m
+    c = 0 # theta0 = y-intercept = c
+    c_tmp = 1
+    m_tmp = 1
 
-    dataDict = normalize(dataDictUnormalized)
-    # theta0 = y-intercept = c
-    # theta1 = slope = m
-    m = 0.0
-    c = 0.0
+    L0 = 0.01 # Learning rate theta0
+    L1 = 0.0000000001 # Learning rate theta1
 
-    L = 0.000000000001 # Learning rate
-    epochs = 100
     prev_cost = float('inf')
     tol = 1e-6
 
-    for r in range(epochs):
-        c_tmp = 0.0
-        m_tmp = 0.0
-        # for item in dataDict:
-            # c_tmp += (m * int(item['km']) + c) - int(item['price'])
-            # m_tmp += ((m * int(item['km']) + c) - int(item['price'])) * int(item['km'])
-        c_tmp = sum(estimatePrice(item['km'], c, m) - int(item['price']) for item in dataDict)
-        m_tmp = sum((estimatePrice(item['km'], c, m) - int(item['price'])) * int(item['km']) for item in dataDict)
-        c = c - L * (1/len(dataDict)) * c_tmp
-        m = m - L * (1/len(dataDict)) * m_tmp
-        # print(m, c)
+    while abs(c - c_tmp) + abs(m - m_tmp) > 0.00001:
+        c_tmp = sum(estimate_price(item['km'], c, m) - item['price'] for item in data_dict)
+        m_tmp = sum((estimate_price(item['km'], c, m) - item['price']) * item['km'] for item in data_dict)
 
-        # current_cost = sum((float(estimatePrice(item['km'], c, m)) - int(item['price']))**2 for item in dataDict)
+        c = c - L0 * (1/len(data_dict)) * c_tmp
+        m = m - L1 * (1/len(data_dict)) * m_tmp
 
-        # if abs(current_cost - prev_cost) < tol:
-        #     break
+        current_cost = sum((float(estimate_price(item['km'], c, m)) - int(item['price']))**2 for item in data_dict)
 
-        # prev_cost = current_cost
+        if abs(current_cost - prev_cost) < tol:
+            break
+        prev_cost = current_cost
 
-    print(c, m)
-    print(estimatePrice(24000, c, m))
-    # line = [str(int(estimatePrice(24000, c, m))), str(int(estimatePrice(240000, c, m)))]
-    # priceLine = [str(24000), str(240000)]
-    # dataDict.sort(key=lambda x: x['price'], reverse=True)
-    # plt.figure(1)
-    # plt.plot([data['km'] for data in dataDict], [data['price'] for data in dataDict], 'o')
-    # plt.plot(priceLine, line, '-m')
-    # plt.grid(True)
-    # plt.show()
-    # plt.close()
+    write_to_txt(c, m)
 
-main()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "-b" or sys.argv[1] == "-s":
+            plt.figure(1)
+            plt.plot([data['km'] for data in data_dict], [data['price'] for data in data_dict], 'o')
+            if sys.argv[1] == "-s":
+                plt.plot([0, 250000], [(estimate_price(0, c, m)),(estimate_price(250000, c, m))], '-m')
+            plt.grid(True)
+            plt.show()
+            plt.close()
+        if sys.argv[1] == "-p":
+            estimate_precision(c, m, data_dict)
 
+if __name__:
+    main()
