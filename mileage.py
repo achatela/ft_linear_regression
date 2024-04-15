@@ -8,8 +8,6 @@ def get_thetas():
             for line in file:
                 lines.append(line)
     except:
-        # print("thetas.txt is not found !")
-        # print("Thetas in file are wrong ! Program is using 0 instead")
         return (0, 0)
 
     if len(lines) != 2:
